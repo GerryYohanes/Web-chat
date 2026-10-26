@@ -15,8 +15,8 @@ input{background:var(--pan);border:1px solid var(--bd);border-radius:6px;padding
 input:focus{border-color:var(--ac)}
 button{background:var(--ac);color:#111;border:0;border-radius:6px;padding:10px 14px;font-weight:700;cursor:pointer}
 button.g{background:none;color:var(--tx);padding:6px 10px}
-#auth{padding:40px 20px;display:grid;gap:10px}
-#auth h2{color:var(--ac)}#err{color:#ff6b6b;min-height:1.2em}
+.form{padding:48px 20px;display:grid;gap:10px}
+.form h2{color:var(--ac);font-size:22px;margin-bottom:6px}.err{color:#ff6b6b;min-height:1.2em}
 #app{height:100%;display:flex;flex-direction:column}
 header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bd);background:var(--pan)}
 header #title{flex:1;display:grid}header small{color:var(--mut)}
@@ -45,13 +45,23 @@ header #title{flex:1;display:grid}header small{color:var(--mut)}
 <body>
 
 <div id="auth" hidden>
-  <h2>Masuk / Daftar</h2>
-  <input id="user" placeholder="Username (khusus daftar)">
-  <input id="email" type="email" placeholder="Email">
-  <input id="pass" type="password" placeholder="Password (min 6 karakter)">
-  <p id="err"></p>
-  <button id="login">Masuk</button>
-  <button id="signup" class="g">Daftar</button>
+  <div id="vLogin" class="form">
+    <h2>Masuk</h2>
+    <input id="lemail" type="email" placeholder="Email" autocomplete="email">
+    <input id="lpass" type="password" placeholder="Password" autocomplete="current-password">
+    <p class="err"></p>
+    <button id="login">Masuk</button>
+    <button class="g" id="toReg">Belum punya akun? Daftar</button>
+  </div>
+  <div id="vReg" class="form" hidden>
+    <h2>Daftar</h2>
+    <input id="user" placeholder="Username (3-20 karakter)" autocomplete="username">
+    <input id="email" type="email" placeholder="Email" autocomplete="email">
+    <input id="pass" type="password" placeholder="Password (min 6 karakter)" autocomplete="new-password">
+    <p class="err"></p>
+    <button id="signup">Daftar</button>
+    <button class="g" id="toLogin">Sudah punya akun? Masuk</button>
+  </div>
 </div>
 
 <div id="app" hidden>
@@ -99,7 +109,10 @@ let me, room, chan, replyTo = null;
 const msgs = new Map(), names = new Map();
 
 // ---------- auth ----------
-const err = t => $('#err').textContent = t || '';
+const err = t => document.querySelectorAll('.err').forEach(e => e.textContent = t || '');
+const tab = reg => { err(''); $('#vLogin').hidden = reg; $('#vReg').hidden = !reg; };
+$('#toReg').onclick = () => tab(true);
+$('#toLogin').onclick = () => tab(false);
 const view = v => { $('#auth').hidden = v !== 'auth'; $('#app').hidden = v === 'auth'; };
 
 async function boot() {
@@ -111,15 +124,16 @@ async function boot() {
   view('app'); showList();
 }
 $('#login').onclick = async () => {
-  const { error } = await sb.auth.signInWithPassword({ email: $('#email').value, password: $('#pass').value });
-  error ? err(error.message) : boot();
+  const { error } = await sb.auth.signInWithPassword({ email: $('#lemail').value.trim(), password: $('#lpass').value });
+  error ? err(error.message === 'Invalid login credentials' ? 'Email atau password salah (belum daftar?)' : error.message) : boot();
 };
 $('#signup').onclick = async () => {
   const username = $('#user').value.trim();
   if (!/^\w{3,20}$/.test(username)) return err('Username 3-20 karakter: huruf, angka, _');
-  const { data, error } = await sb.auth.signUp({ email: $('#email').value, password: $('#pass').value, options: { data: { username } } });
+  const { data, error } = await sb.auth.signUp({ email: $('#email').value.trim(), password: $('#pass').value, options: { data: { username } } });
   if (error) return err(error.message);
-  data.session ? boot() : err('Cek email untuk konfirmasi, lalu masuk.');
+  if (data.session) return boot();
+  tab(false); err('Akun dibuat. Cek email untuk konfirmasi, lalu masuk.');
 };
 $('#out').onclick = async () => { await sb.auth.signOut(); leave(); view('auth'); };
 
