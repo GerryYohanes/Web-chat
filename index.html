@@ -47,7 +47,7 @@ header #title{flex:1;display:grid}header small{color:var(--mut)}
 <div id="auth" hidden>
   <div id="vLogin" class="form">
     <h2>Masuk</h2>
-    <input id="lemail" type="email" placeholder="Email" autocomplete="email">
+    <input id="luser" placeholder="Username" autocomplete="username">
     <input id="lpass" type="password" placeholder="Password" autocomplete="current-password">
     <p class="err"></p>
     <button id="login">Masuk</button>
@@ -56,7 +56,6 @@ header #title{flex:1;display:grid}header small{color:var(--mut)}
   <div id="vReg" class="form" hidden>
     <h2>Daftar</h2>
     <input id="user" placeholder="Username (3-20 karakter)" autocomplete="username">
-    <input id="email" type="email" placeholder="Email" autocomplete="email">
     <input id="pass" type="password" placeholder="Password (min 6 karakter)" autocomplete="new-password">
     <p class="err"></p>
     <button id="signup">Daftar</button>
@@ -98,11 +97,15 @@ header #title{flex:1;display:grid}header small{color:var(--mut)}
 // ====== ISI DENGAN PROJECT SUPABASE KAMU (Settings > API) ======
 const SUPABASE_URL = 'https://hzwtaceqtmvhhksezdyg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_vKfak5mTb8ehECbfc8K2sA_gSGxsC_Y';
+// Supabase Auth wajib punya email, jadi username diubah jadi email palsu: username@EMAIL_DOMAIN
+// (tidak ada email yang dikirim selama "Confirm email" dimatikan di Supabase)
+const EMAIL_DOMAIN = 'gmail.com';
 // ================================================================
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const toEmail = u => u.trim().toLowerCase() + '@' + EMAIL_DOMAIN;
 const hm = d => new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
 let me, room, chan, replyTo = null;
@@ -124,16 +127,16 @@ async function boot() {
   view('app'); showList();
 }
 $('#login').onclick = async () => {
-  const { error } = await sb.auth.signInWithPassword({ email: $('#lemail').value.trim(), password: $('#lpass').value });
-  error ? err(error.message === 'Invalid login credentials' ? 'Email atau password salah (belum daftar?)' : error.message) : boot();
+  const { error } = await sb.auth.signInWithPassword({ email: toEmail($('#luser').value), password: $('#lpass').value });
+  error ? err(error.message === 'Invalid login credentials' ? 'Username atau password salah (belum daftar?)' : error.message) : boot();
 };
 $('#signup').onclick = async () => {
   const username = $('#user').value.trim();
   if (!/^\w{3,20}$/.test(username)) return err('Username 3-20 karakter: huruf, angka, _');
-  const { data, error } = await sb.auth.signUp({ email: $('#email').value.trim(), password: $('#pass').value, options: { data: { username } } });
-  if (error) return err(error.message);
+  const { data, error } = await sb.auth.signUp({ email: toEmail(username), password: $('#pass').value, options: { data: { username: username.toLowerCase() } } });
+  if (error) return err(/already registered/i.test(error.message) ? 'Username sudah dipakai' : error.message);
   if (data.session) return boot();
-  tab(false); err('Akun dibuat. Cek email untuk konfirmasi, lalu masuk.');
+  err('Daftar berhasil, tapi "Confirm email" di Supabase masih aktif. Matikan dulu, lalu coba masuk.');
 };
 $('#out').onclick = async () => { await sb.auth.signOut(); leave(); view('auth'); };
 
